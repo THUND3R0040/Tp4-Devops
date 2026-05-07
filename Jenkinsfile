@@ -1,7 +1,6 @@
 pipeline {
     agent any
 
-    // This makes the NodeJS tool we configured available in the pipeline path
     tools {
         nodejs 'NodeJS'
     }
@@ -9,33 +8,27 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Pulls the code from your Git repo
                 checkout scm
             }
         }
 
         stage('Build/Install') {
             steps {
-                echo 'Installing dependencies...'
                 sh 'npm install'
             }
         }
 
         stage('Unit Tests') {
             steps {
-                echo 'Running unit tests...'
                 sh 'npm test'
             }
         }
 
         stage('Static Analysis') {
             environment {
-                // Link to the Scanner we configured in Jenkins Tools
                 scannerHome = tool 'SonarScanner'
             }
             steps {
-                echo 'Running SonarQube Analysis...'
-                // Points to the SonarQube container inside our Docker network
                 withSonarQubeEnv('SonarQube') {
                     sh "${scannerHome}/bin/sonar-scanner -Dsonar.host.url=http://sonarqube:9000"
                 }
@@ -44,10 +37,41 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                echo 'Waiting for SonarQube Quality Gate...'
                 timeout(time: 5, unit: 'MINUTES') {
-                    // Pipeline fails here if SonarQube metrics aren't met
                     waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // NEW STAGES FOR EXERCICE 2 (CD)
+
+        stage('Docker Build') {
+            steps {
+                echo 'Building Docker Image...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                    // ${BUILD_NUMBER} is a built-in Jenkins variable (e.g., 1, 2, 3...)
+                    sh 'docker build -t $DOCKER_USER/devops-tp-node:$BUILD_NUMBER .'
+                }
+            }
+        }
+
+        stage('Image Scanning (Trivy)') {
+            steps {
+                echo 'Scanning image for vulnerabilities...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                    // We run Trivy as a temporary container to scan the image we just built
+                    // --exit-code 0 means it will print the report but won't fail the pipeline for now
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL $DOCKER_USER/devops-tp-node:$BUILD_NUMBER'
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                echo 'Pushing image to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh 'docker push $DOCKER_USER/devops-tp-node:$BUILD_NUMBER'
                 }
             }
         }
