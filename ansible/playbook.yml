@@ -1,0 +1,67 @@
+- name: Deploy to AKS
+  hosts: localhost
+  connection: local
+
+  vars:
+    resource_group: "tp4-k8s-rg"
+    aks_cluster_name: "tp4-k8s-cluster"
+
+  tasks:
+    - name: Azure login (Service Principal)
+      command: >
+        az login --service-principal
+        -u {{ az_client_id }}
+        -p {{ az_client_secret }}
+        --tenant {{ az_tenant_id }}
+
+    - name: Get AKS credentials
+      command: >
+        az aks get-credentials
+        --resource-group {{ resource_group }}
+        --name {{ aks_cluster_name }}
+        --overwrite-existing
+
+    - name: Copy k8s manifests folder to temp
+      copy:
+        src: ./k8s/
+        dest: /tmp/k8s/
+
+    - name: Replace image placeholder in deployment manifest
+      replace:
+        path: /tmp/k8s/deployment.yaml
+        regexp: 'DOCKER_IMAGE_PLACEHOLDER'
+        replace: "{{ docker_image }}"
+
+    - name: Apply Namespace first
+      command: kubectl apply -f /tmp/k8s/namespace.yaml
+
+    - name: Apply remaining Kubernetes manifests
+      command: kubectl apply -f /tmp/k8s/
+
+    - name: Wait for deployment to be ready
+      command: kubectl rollout status deployment/backend-deployment -n tp4-devops --timeout=120s
+
+    - name: Get Ingress IP
+      command: >
+        kubectl get ingress tp4-devops-ingress
+        -n tp4-devops
+        -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      register: ingress_ip
+
+    - name: Verify Ingress IP is not empty
+      fail:
+        msg: "ERROR: Ingress IP not found"
+      when: ingress_ip.stdout == ""
+
+    - name: Smoke Test - GET /api
+      uri:
+        url: "http://{{ ingress_ip.stdout }}/api"
+        method: GET
+        status_code: 200
+        retries: 5
+        delay: 10
+      register: smoke_result
+
+    - name: Smoke Test PASSED
+      debug:
+        msg: "Smoke Test PASSED ✅ - Response: {{ smoke_result.json | default(smoke_result.content) }}"

@@ -5,6 +5,16 @@ pipeline {
         nodejs 'NodeJS'
     }
 
+    environment {
+        // Azure SP credentials (from Jenkins secrets)
+        AZ_CLIENT_ID     = credentials('azure-sp-client-id')
+        AZ_CLIENT_SECRET = credentials('azure-sp-client-secret')
+        AZ_TENANT_ID     = credentials('azure-sp-tenant-id')
+        
+        // Docker image name (coherent across all stages)
+        IMAGE_NAME = 'chedli01/tp4'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -43,26 +53,18 @@ pipeline {
             }
         }
 
-        // NEW STAGES FOR EXERCICE 2 (CD)
-
         stage('Docker Build') {
             steps {
-                echo 'Building Docker Image...'
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
-                    // ${BUILD_NUMBER} is a built-in Jenkins variable (e.g., 1, 2, 3...)
-                    sh 'docker build -t $DOCKER_USER/devops-tp-node:$BUILD_NUMBER .'
-                }
+                echo "Building Docker Image: ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
+                sh "docker build -t ${env.IMAGE_NAME}:${env.BUILD_NUMBER} ."
             }
         }
 
         stage('Image Scanning (Trivy)') {
             steps {
                 echo 'Scanning image for vulnerabilities...'
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
-                    // We run Trivy as a temporary container to scan the image we just built
-                    // --exit-code 0 means it will print the report but won't fail the pipeline for now
-                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL $DOCKER_USER/devops-tp-node:$BUILD_NUMBER'
-                }
+                // Trivy scans the image we just built
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
             }
         }
 
@@ -71,9 +73,34 @@ pipeline {
                 echo 'Pushing image to Docker Hub...'
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
                     sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                    sh 'docker push $DOCKER_USER/devops-tp-node:$BUILD_NUMBER'
+                    sh "docker push ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
                 }
             }
+        }
+
+        stage('Deploy to AKS') {
+            steps {
+                script {
+                    def imageTag = "${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    
+                    sh """
+                        ansible-playbook ansible/playbook.yml \
+                          --extra-vars "az_client_id=${env.AZ_CLIENT_ID}" \
+                          --extra-vars "az_client_secret=${env.AZ_CLIENT_SECRET}" \
+                          --extra-vars "az_tenant_id=${env.AZ_TENANT_ID}" \
+                          --extra-vars "docker_image=${imageTag}"
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "Pipeline failed!"
+        }
+        success {
+            echo "Pipeline completed successfully! Deployed: ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
         }
     }
 }

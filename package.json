@@ -5,6 +5,7 @@
     "test": "echo \"Running dummy unit tests...\" && exit 0"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "prom-client": "^15.1.3"
   }
 }

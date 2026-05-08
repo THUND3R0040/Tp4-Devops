@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: tp4-devops
+  labels:
+    app: backend
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: backend
+
+  template:
+    metadata:
+      labels:
+        app: backend
+
+    spec:
+      containers:
+        - name: backend
+          image: DOCKER_IMAGE_PLACEHOLDER
+          ports:
+            - containerPort: 5000
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-servicemonitor
+  namespace: tp4-devops
+  labels:
+    release: monitoring-stack
+spec:
+  selector:
+    matchLabels:
+      app: devops-backend-service
+  endpoints:
+    - port: http
+      path: /api/metrics
+      interval: 15s
