@@ -60,13 +60,13 @@ pipeline {
             }
         }
 
-        // stage('Image Scanning (Trivy)') {
-        //     steps {
-        //         echo 'Scanning image for vulnerabilities...'
-        //         // Trivy scans the image we just built
-        //         sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
-        //     }
-        // }
+        stage('Image Scanning (Trivy)') {
+            steps {
+                echo 'Scanning image for vulnerabilities...'
+                // Trivy scans the image we just built
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
+            }
+        }
 
         stage('Docker Push') {
             steps {
