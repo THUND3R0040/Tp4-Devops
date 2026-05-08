@@ -21,22 +21,34 @@
         --name {{ aks_cluster_name }}
         --overwrite-existing
 
+    - name: Clean old temp k8s folder
+      file:
+        path: /tmp/k8s
+        state: absent
+
+    - name: Create temp k8s folder
+      file:
+        path: /tmp/k8s
+        state: directory
+
+    - name: Copy k8s manifests folder to temp
+      copy:
+        src: "{{ playbook_dir }}/../k8s/"
+        dest: /tmp/k8s/
+
+    - name: Debug copied files
+      command: ls -R /tmp/k8s
+
     - name: Replace image placeholder in deployment manifest
       replace:
-        path: "{{ playbook_dir }}/../k8s/deployment.yaml"
+        path: /tmp/k8s/deployment.yml
         regexp: 'DOCKER_IMAGE_PLACEHOLDER'
         replace: "{{ docker_image }}"
 
-    - name: Apply Namespace first
-      command: kubectl apply -f "{{ playbook_dir }}/../k8s/namespace.yaml"
-
-    - name: Apply remaining Kubernetes manifests
-      command: kubectl apply -f "{{ playbook_dir }}/../k8s/"
-
 
 
     - name: Apply Namespace first
-      command: kubectl apply -f /tmp/k8s/namespace.yaml
+      command: kubectl apply -f /tmp/k8s/namespace.yml
 
     - name: Apply remaining Kubernetes manifests
       command: kubectl apply -f /tmp/k8s/
