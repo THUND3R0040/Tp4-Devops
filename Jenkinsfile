@@ -77,10 +77,9 @@ pipeline {
                 }
             }
         }
-
         stage('Deploy to AKS') {
-         steps {
-          withCredentials([
+    steps {
+        withCredentials([
             string(credentialsId: 'azure-sp-client-id', variable: 'AZ_ID'),
             string(credentialsId: 'azure-sp-client-secret', variable: 'AZ_SECRET'),
             string(credentialsId: 'azure-sp-tenant-id', variable: 'AZ_TENANT')
@@ -88,17 +87,19 @@ pipeline {
             script {
                 def imageTag = "${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
                 
-                sh """
+                // Use shell variables ($AZ_ID) not Groovy interpolation (${AZ_ID})
+                sh '''
                     ansible-playbook ansible/playbook.yml \
-                      --extra-vars "az_client_id=${AZ_ID}" \
-                      --extra-vars "az_client_secret=${AZ_SECRET}" \
-                      --extra-vars "az_tenant_id=${AZ_TENANT}" \
-                      --extra-vars "docker_image=${imageTag}"
-                """
+                      --extra-vars "az_client_id=$AZ_ID" \
+                      --extra-vars "az_client_secret=$AZ_SECRET" \
+                      --extra-vars "az_tenant_id=$AZ_TENANT" \
+                      --extra-vars "docker_image=''' + imageTag + '''"
+                '''
             }
         }
     }
 }
+
     }
 
     post {
