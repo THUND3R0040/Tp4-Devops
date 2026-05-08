@@ -23,7 +23,7 @@
 
     - name: Copy k8s manifests folder to temp
       copy:
-        src: ./k8s/
+        src: ../k8s/
         dest: /tmp/k8s/
 
     - name: Replace image placeholder in deployment manifest
