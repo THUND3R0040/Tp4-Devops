@@ -45,8 +45,6 @@
         regexp: 'DOCKER_IMAGE_PLACEHOLDER'
         replace: "{{ docker_image }}"
 
-
-
     - name: Apply Namespace first
       command: kubectl apply -f /tmp/k8s/namespace.yml
 
@@ -56,17 +54,16 @@
     - name: Wait for deployment to be ready
       command: kubectl rollout status deployment/backend-deployment -n tp4-devops --timeout=120s
 
-    - name: Get Ingress IP
-      command: >
-        kubectl get ingress tp4-devops-ingress
-        -n tp4-devops
-        -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+    - name: Wait for Ingress IP to be assigned
+      command: kubectl get ingress tp4-devops-ingress -n tp4-devops -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
       register: ingress_ip
+      retries: 15
+      delay: 20
+      until: ingress_ip.stdout != ""
 
-    - name: Verify Ingress IP is not empty
-      fail:
-        msg: "ERROR: Ingress IP not found"
-      when: ingress_ip.stdout == ""
+    - name: Show Ingress IP
+      debug:
+        msg: "Ingress IP is: {{ ingress_ip.stdout }}"
 
     - name: Smoke Test - GET /api
       uri:
