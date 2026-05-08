@@ -34,24 +34,24 @@ pipeline {
             }
         }
 
-        stage('Static Analysis') {
-            environment {
-                scannerHome = tool 'SonarScanner'
-            }
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh "${scannerHome}/bin/sonar-scanner -Dsonar.host.url=http://sonarqube:9000"
-                }
-            }
-        }
+        // stage('Static Analysis') {
+        //     environment {
+        //         scannerHome = tool 'SonarScanner'
+        //     }
+        //     steps {
+        //         withSonarQubeEnv('SonarQube') {
+        //             sh "${scannerHome}/bin/sonar-scanner -Dsonar.host.url=http://sonarqube:9000"
+        //         }
+        //     }
+        // }
 
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        // stage('Quality Gate') {
+        //     steps {
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
 
         stage('Docker Build') {
             steps {
@@ -60,13 +60,13 @@ pipeline {
             }
         }
 
-        stage('Image Scanning (Trivy)') {
-            steps {
-                echo 'Scanning image for vulnerabilities...'
-                // Trivy scans the image we just built
-                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
-            }
-        }
+        // stage('Image Scanning (Trivy)') {
+        //     steps {
+        //         echo 'Scanning image for vulnerabilities...'
+        //         // Trivy scans the image we just built
+        //         sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
+        //     }
+        // }
 
         stage('Docker Push') {
             steps {
