@@ -70,9 +70,11 @@
         url: "http://{{ ingress_ip.stdout }}/api"
         method: GET
         status_code: 200
-        retries: 5
-        delay: 10
+      retries: 5
+      delay: 10
       register: smoke_result
+      until: smoke_result.status == 200
+
 
     - name: Smoke Test PASSED
       debug:
