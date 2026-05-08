@@ -1,0 +1,22 @@
+grafana:
+  adminPassword: "admin" #just a demo value , going to be overridden by terraform sensitive variable
+  
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
+      serve_from_sub_path: true
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts: []  
+    path: /grafana
+    pathType: Prefix
+
+prometheus:
+  ingress:
+    enabled: false 
+
+prometheusOperator:
+  serviceMonitor:
+    enabled: true
