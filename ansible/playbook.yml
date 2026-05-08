@@ -78,4 +78,4 @@
 
     - name: Smoke Test PASSED
       debug:
-        msg: "Smoke Test PASSED ✅ - Response: {{ smoke_result.json | default(smoke_result.content) }}"
+        msg: "Smoke Test PASSED ✅ - Status: {{ smoke_result.status }}"
